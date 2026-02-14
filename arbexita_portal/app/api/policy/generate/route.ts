@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   text("• Medarbetare rapporterar risker och incidenter och följer instruktioner.");
   y -= 10;
 
-  text(`Datum: ${new Date().toLocaleDateString("sv-SE")}`, 11);
+  text(`Datum: ${new Date().toLocaleDateString("sv-SE")}`, 11);g
   text("Signatur: ____________________________", 11);
 
   // pdf-lib -> Uint8Array<ArrayBufferLike> (kan trigga SharedArrayBuffer i TS-typer)
