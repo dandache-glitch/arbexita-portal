@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
+
   const companyName = String(body.companyName ?? "Företaget");
   const industry = String(body.industry ?? "Bransch");
   const employees = Number(body.employees ?? 1);
@@ -17,7 +18,13 @@ export async function POST(req: Request) {
   let y = 800;
 
   function text(t: string, size = 11, bold = false) {
-    page.drawText(t, { x: margin, y, size, font: bold ? fontBold : font, color: rgb(0.1,0.1,0.1) });
+    page.drawText(t, {
+      x: margin,
+      y,
+      size,
+      font: bold ? fontBold : font,
+      color: rgb(0.1, 0.1, 0.1),
+    });
     y -= size + 8;
   }
 
@@ -30,7 +37,9 @@ export async function POST(req: Request) {
   y -= 8;
 
   text("Syfte", 14, true);
-  text("Vår arbetsmiljö ska vara säker, inkluderande och förebygga ohälsa och olyckor.");
+  text(
+    "Vår arbetsmiljö ska vara säker, inkluderande och förebygga ohälsa och olyckor."
+  );
   y -= 4;
 
   text("Mål", 14, true);
@@ -55,11 +64,20 @@ export async function POST(req: Request) {
   text(`Datum: ${new Date().toLocaleDateString("sv-SE")}`, 11);
   text("Signatur: ____________________________", 11);
 
+  // pdf-lib returns Uint8Array; NextResponse expects BodyInit (e.g. ArrayBuffer)
   const bytes = await pdfDoc.save();
-  return new NextResponse(bytes, {
+  const arrayBuffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  );
+
+  return new NextResponse(arrayBuffer, {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `inline; filename="arbetsmiljopolicy-${companyName.replace(/\s+/g,"_")}.pdf"`
-    }
+      "content-disposition": `inline; filename="arbetsmiljopolicy-${companyName.replace(
+        /\s+/g,
+        "_"
+      )}.pdf"`,
+    },
   });
 }
