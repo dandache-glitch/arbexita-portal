@@ -62,12 +62,16 @@ export async function POST(req: Request) {
   text(`Datum: ${new Date().toLocaleDateString("sv-SE")}`, 11);
   text("Signatur: ____________________________", 11);
 
+  // pdf-lib -> Uint8Array<ArrayBufferLike> (kan trigga SharedArrayBuffer i TS-typer)
   const bytes = await pdfDoc.save();
 
-  // Blob är alltid OK som BodyInit (och undviker ArrayBuffer/SharedArrayBuffer-typproblem)
-  const pdfBlob = new Blob([bytes], { type: "application/pdf" });
+  // ✅ Skapa en "säker" kopia med riktig ArrayBuffer
+  const safeBytes = new Uint8Array(bytes);
 
-  return new NextResponse(pdfBlob, {
+  // ✅ Returnera ArrayBuffer som BodyInit (TS-kompatibelt)
+  const arrayBuffer = safeBytes.buffer;
+
+  return new NextResponse(arrayBuffer, {
     headers: {
       "content-type": "application/pdf",
       "content-disposition": `inline; filename="arbetsmiljopolicy-${companyName.replace(/\s+/g, "_")}.pdf"`,
