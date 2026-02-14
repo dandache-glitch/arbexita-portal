@@ -37,9 +37,7 @@ export async function POST(req: Request) {
   y -= 8;
 
   text("Syfte", 14, true);
-  text(
-    "Vår arbetsmiljö ska vara säker, inkluderande och förebygga ohälsa och olyckor."
-  );
+  text("Vår arbetsmiljö ska vara säker, inkluderande och förebygga ohälsa och olyckor.");
   y -= 4;
 
   text("Mål", 14, true);
@@ -64,20 +62,15 @@ export async function POST(req: Request) {
   text(`Datum: ${new Date().toLocaleDateString("sv-SE")}`, 11);
   text("Signatur: ____________________________", 11);
 
-  // pdf-lib returns Uint8Array; NextResponse expects BodyInit (e.g. ArrayBuffer)
   const bytes = await pdfDoc.save();
-  const arrayBuffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  );
 
-  return new NextResponse(arrayBuffer, {
+  // Blob är alltid OK som BodyInit (och undviker ArrayBuffer/SharedArrayBuffer-typproblem)
+  const pdfBlob = new Blob([bytes], { type: "application/pdf" });
+
+  return new NextResponse(pdfBlob, {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `inline; filename="arbetsmiljopolicy-${companyName.replace(
-        /\s+/g,
-        "_"
-      )}.pdf"`,
+      "content-disposition": `inline; filename="arbetsmiljopolicy-${companyName.replace(/\s+/g, "_")}.pdf"`,
     },
   });
 }
