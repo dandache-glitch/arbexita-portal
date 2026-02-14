@@ -1,13 +1,41 @@
-import { ReactNode } from "react";
-import { TopNav } from "@/components/TopNav";
+"use client";
 
-export default function AppLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-screen">
-      <TopNav />
-      <div className="mx-auto max-w-6xl px-4 py-6">
-        {children}
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase/client";
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace("/login?next=/app");
+        return;
+      }
+      setReady(true);
+    });
+
+    // även om sessionen ändras efteråt
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.replace("/login?next=/app");
+    });
+
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        Laddar...
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <>{children}</>;
 }
