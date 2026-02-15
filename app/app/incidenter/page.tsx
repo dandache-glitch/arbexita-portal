@@ -1,106 +1,122 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import React, { useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useCompany } from "@/app/providers/CompanyProvider";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Notice } from "@/components/ui/Notice";
 
 type IncidentRow = {
   id: string;
   title: string;
-  severity: string;
+  severity: string | null;
   description: string | null;
   created_at: string;
 };
 
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("sv-SE");
+}
+
 export default function IncidentsPage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const company = useCompany();
+  const { isLoading: companyLoading, company } = useCompany();
 
-  const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<IncidentRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  async function load(companyId: string) {
+    setError(null);
+    setLoading(true);
+
+    const { data, error: qErr } = await supabase
+      .from("incidents")
+      .select("id,title,severity,description,created_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+
+    if (qErr) {
+      setError(qErr.message);
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    setRows((data as IncidentRow[]) ?? []);
+    setLoading(false);
+  }
+
   useEffect(() => {
-    if (!company.companyId) return;
+    if (companyLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!company?.id) {
+      setRows([]);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-
-      const { data, error } = await supabase
-        .from("incidents")
-        .select("id,title,severity,description,created_at")
-        .eq("company_id", company.companyId)
-        .order("created_at", { ascending: false });
-
+    (async () => {
+      await load(company.id);
       if (cancelled) return;
-
-      if (error) {
-        setError(error.message);
-        setRows([]);
-        setLoading(false);
-        return;
-      }
-
-      setRows(((data as any[]) ?? []) as IncidentRow[]);
-      setLoading(false);
-    }
-
-    load();
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [company.companyId, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyLoading, company?.id]);
 
   return (
-    <div className="container">
-      <PageHeader
-        title="Incidenter"
-        subtitle={<>Rapportera tillbud/olyckor och säkerställ uppföljning.</>}
-        right={
-          <>
-            <Link className="btn" href="/app">Dashboard</Link>
-            <Link className="btn btn-primary" href="/app/incidenter/rapportera">Rapportera incident</Link>
-          </>
-        }
-      />
+    <div className="page">
+      <div className="pageHeader">
+        <div>
+          <h1>Incidenter</h1>
+          <p>Rapportera och följ upp incidenter och tillbud.</p>
+        </div>
+        <div className="pageHeaderActions">
+          <a className="button secondary" href="/app/incidenter/rapportera">
+            Rapportera incident
+          </a>
+        </div>
+      </div>
 
-      <div className="card" style={{ padding: 16, marginTop: 14 }}>
-        {error ? <Notice tone="error">{error}</Notice> : null}
+      <div className="card">
+        {error && <div className="errorBox">{error}</div>}
 
-        <table className="table" style={{ marginTop: error ? 12 : 0 }}>
-          <thead>
-            <tr>
-              <th>Titel</th>
-              <th>Typ</th>
-              <th>Datum</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={3} className="small">Laddar…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={3} className="small">Inga incidenter ännu.</td></tr>
-            ) : (
-              rows.map((i) => (
-                <tr key={i.id}>
-                  <td>
-                    <div style={{ fontWeight: 800 }}>{i.title}</div>
-                    {i.description ? <div className="small" style={{ marginTop: 2 }}>{i.description}</div> : null}
-                  </td>
-                  <td><span className="badge">{i.severity}</span></td>
-                  <td className="small">{new Date(i.created_at).toLocaleDateString("sv-SE")}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        {companyLoading || loading ? (
+          <div className="muted">Laddar…</div>
+        ) : !company?.id ? (
+          <div className="muted">Inget företag hittades för kontot.</div>
+        ) : rows.length === 0 ? (
+          <div className="muted">Inga incidenter rapporterade ännu.</div>
+        ) : (
+          <div className="table">
+            <div className="tableHead">
+              <div>Titel</div>
+              <div>Allvarlighetsgrad</div>
+              <div>Datum</div>
+            </div>
+
+            {rows.map((r) => (
+              <div key={r.id} className="tableRow">
+                <div className="tableMain">
+                  <div className="tableTitle">{r.title}</div>
+                  {r.description ? <div className="tableSub">{r.description}</div> : null}
+                </div>
+                <div>
+                  <span className="badge">{r.severity ?? "—"}</span>
+                </div>
+                <div>{formatDate(r.created_at)}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
