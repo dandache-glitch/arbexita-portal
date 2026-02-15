@@ -17,25 +17,29 @@ export default function LoginClient() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
+    setError(null);
     setLoading(true);
 
-    const cleanEmail = email.trim();
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
+    const { data, error: signInErr } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
       password,
     });
 
     setLoading(false);
 
-    if (error) {
-      setErr(error.message);
+    if (signInErr) {
+      setError(signInErr.message);
+      return;
+    }
+
+    if (!data.session) {
+      setError("Kunde inte logga in. Kontrollera e-postbekräftelse i Supabase Auth.");
       return;
     }
 
@@ -43,50 +47,57 @@ export default function LoginClient() {
   }
 
   return (
-    <div className="container">
-      <div className="card" style={{ padding: 24, maxWidth: 560, margin: "40px auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <Logo />
+    <div className="authWrap">
+      <div className="authCard">
+        <div className="authTop">
+          <Logo size="md" />
+          <div>
+            <div className="authTitle">Logga in</div>
+            <div className="authSub">Tillgång till din SAM-portal och dokumentation.</div>
+          </div>
         </div>
 
-        <div className="h1">Logga in</div>
-        <p className="small" style={{ marginTop: 6 }}>
-          Logga in för att få överblick över risker, åtgärder, incidenter och dokumentation.
-        </p>
-
         {registered && (
-          <Notice tone="info">
-            Konto skapat. Om du har e-postbekräftelse aktiverad i Supabase behöver du bekräfta länken i mailet innan du kan logga in.
+          <Notice tone="success">
+            Konto skapat. Om du har e-postbekräftelse aktiverad i Supabase behöver du bekräfta länken i mailet innan du
+            kan logga in.
           </Notice>
         )}
 
-        <form onSubmit={onSubmit} style={{ marginTop: 16, display: "grid", gap: 12 }}>
-          <div>
-            <div className="label">E-post</div>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-          </div>
+        {error && <Notice tone="error">{error}</Notice>}
 
-          <div>
-            <div className="label">Lösenord</div>
+        <form onSubmit={onSubmit} className="authForm">
+          <label className="label">
+            E-post
             <input
               className="input"
-              type="password"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="namn@foretag.se"
+              autoComplete="email"
+              inputMode="email"
+            />
+          </label>
+
+          <label className="label">
+            Lösenord
+            <input
+              className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
+              type="password"
+              placeholder="••••••••"
               autoComplete="current-password"
             />
-          </div>
+          </label>
 
-          {err && <Notice tone="error">{err}</Notice>}
-
-          <button className="btn btn-primary" disabled={loading}>
-            {loading ? "Loggar in..." : "Logga in"}
+          <button className="button" type="submit" disabled={loading}>
+            {loading ? "Loggar in…" : "Logga in"}
           </button>
         </form>
 
-        <div className="small" style={{ marginTop: 14 }}>
-          Saknar konto?{" "}
+        <div className="small" style={{ marginTop: 12 }}>
+          Inget konto?{" "}
           <Link href="/register" className="btn" style={{ padding: "6px 10px", marginLeft: 8 }}>
             Skapa konto
           </Link>
