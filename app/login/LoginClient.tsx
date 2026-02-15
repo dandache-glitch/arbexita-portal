@@ -50,7 +50,7 @@ export default function LoginClient() {
     <div className="authWrap">
       <div className="authCard">
         <div className="authTop">
-          <Logo size="md" />
+          <Logo variant="full" />
           <div>
             <div className="authTitle">Logga in</div>
             <div className="authSub">Tillgång till din SAM-portal och dokumentation.</div>
