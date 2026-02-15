@@ -1,177 +1,242 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import React, { useEffect, useMemo, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useCompany } from "@/app/providers/CompanyProvider";
-import { Notice } from "@/components/ui/Notice";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { getComplianceStatus } from "@/lib/app/queries";
-import { computeComplianceScore } from "@/lib/app/compliance";
 
-const STEPS = [
-  {
-    key: "policy" as const,
-    title: "Arbetsmiljöpolicy",
-    desc: "Skapa/uppdatera policy som PDF."
-  },
-  {
-    key: "risk" as const,
-    title: "Minst en riskbedömning",
-    desc: "Dokumentera risker och prioritering (S×K)."
-  },
-  {
-    key: "actions" as const,
-    title: "Inga förfallna åtgärder",
-    desc: "Åtgärder ska ha status och deadline."
-  },
-  {
-    key: "incidents" as const,
-    title: "Incidentrapportering",
-    desc: "Rapportera tillbud/olyckor och följ upp."
-  },
-  {
-    key: "annual" as const,
-    title: "Årlig uppföljning",
-    desc: "Markera att SAM följts upp och förbättrats."
-  }
-];
+type ComplianceStatus = {
+  score: number; // 0..100
+  ready: boolean;
+  steps: {
+    policyCreated: boolean;
+    hasRisk: boolean;
+    noOverdueActions: boolean;
+    hasIncident: boolean;
+    annualReviewDone: boolean;
+  };
+  meta: {
+    overdueActionsCount: number;
+    openActionsCount: number;
+    risksCount: number;
+    incidentsCount: number;
+  };
+};
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function computeScore(steps: ComplianceStatus["steps"]) {
+  // 5 steg, lika vikt
+  const parts = [
+    steps.policyCreated,
+    steps.hasRisk,
+    steps.noOverdueActions,
+    steps.hasIncident,
+    steps.annualReviewDone,
+  ];
+  const ok = parts.filter(Boolean).length;
+  return Math.round((ok / parts.length) * 100);
+}
+
+async function getComplianceStatus(
+  supabase: ReturnType<typeof supabaseBrowser>,
+  companyId: string,
+  annualReviewDone: boolean
+): Promise<ComplianceStatus> {
+  // Policy: finns rad i policies (PK = company_id i din nuvarande modell)
+  const policyQ = await supabase.from("policies").select("company_id").eq("company_id", companyId).maybeSingle();
+  const policyCreated = Boolean(policyQ.data) && !policyQ.error;
+
+  // Minst en risk
+  const risksCountQ = await supabase
+    .from("risks")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId);
+
+  const risksCount = risksCountQ.count ?? 0;
+  const hasRisk = risksCount > 0;
+
+  // Incident minst en
+  const incidentsCountQ = await supabase
+    .from("incidents")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId);
+
+  const incidentsCount = incidentsCountQ.count ?? 0;
+  const hasIncident = incidentsCount > 0;
+
+  // Åtgärder open/done och overdue
+  const openActionsQ = await supabase
+    .from("actions")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .neq("status", "done");
+
+  const openActionsCount = openActionsQ.count ?? 0;
+
+  const nowIso = new Date().toISOString();
+
+  const overdueQ = await supabase
+    .from("actions")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", companyId)
+    .neq("status", "done")
+    .not("due_date", "is", null)
+    .lt("due_date", nowIso);
+
+  const overdueActionsCount = overdueQ.count ?? 0;
+  const noOverdueActions = overdueActionsCount === 0;
+
+  const steps = {
+    policyCreated,
+    hasRisk,
+    noOverdueActions,
+    hasIncident,
+    annualReviewDone,
+  };
+
+  const score = clamp(computeScore(steps), 0, 100);
+
+  return {
+    score,
+    ready: score === 100,
+    steps,
+    meta: {
+      overdueActionsCount,
+      openActionsCount,
+      risksCount,
+      incidentsCount,
+    },
+  };
+}
 
 export default function CompliancePage() {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const company = useCompany();
+  const { isLoading: companyLoading, company } = useCompany();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [status, setStatus] = useState({
-    policy: false,
-    risk: false,
-    actions: false,
-    incidents: false,
-    annual: false,
-    overdueActions: 0
-  });
-
-  const score = computeComplianceScore(status as any);
+  const [status, setStatus] = useState<ComplianceStatus | null>(null);
 
   async function refresh() {
-    if (!company.companyId) return;
     setError(null);
-    setLoading(true);
-    const s = await getComplianceStatus(supabase, company.companyId, company.annualReviewDone);
-    setStatus(s);
-    setLoading(false);
-  }
 
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company.companyId, company.annualReviewDone]);
-
-  async function toggleAnnualReview(done: boolean) {
-    if (!company.companyId) return;
-    setSaving(true);
-    setError(null);
-    const { error } = await supabase
-      .from("companies")
-      .update({ annual_review_done: done })
-      .eq("id", company.companyId);
-
-    if (error) {
-      setSaving(false);
-      setError(error.message);
+    if (companyLoading) {
+      setLoading(true);
       return;
     }
 
-    await company.refresh();
-    await refresh();
-    setSaving(false);
+    if (!company?.id) {
+      setStatus(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const s = await getComplianceStatus(supabase, company.id, company.annual_review_done);
+      setStatus(s);
+      setLoading(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Okänt fel";
+      setError(msg);
+      setStatus(null);
+      setLoading(false);
+    }
   }
 
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyLoading, company?.id, company?.annual_review_done]);
+
   return (
-    <div className="container">
-      <PageHeader
-        title="Redo för inspektion"
-        subtitle={
-          <>
-            Checklistan visar vad som saknas för att nå <b>100%</b>. All data sparas i din SAM-dokumentation.
-          </>
-        }
-        right={
-          <>
-            <Link className="btn" href="/app">Till dashboard</Link>
-            <Link className="btn btn-primary" href="/app/policy">Skapa policy</Link>
-          </>
-        }
-      />
-
-      <div className="card" style={{ padding: 16, marginTop: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div className="h2">Compliance-score</div>
-            <div className="small">Baserad på fem obligatoriska steg.</div>
-          </div>
-          <div className="kpi">{loading ? "…" : `${score}%`}</div>
+    <div className="page">
+      <div className="pageHeader">
+        <div>
+          <h1>Compliance</h1>
+          <p>Se status och vad som krävs för att vara “redo för arbetsmiljöinspektion”.</p>
         </div>
-        <div className="progress-wrap">
-          <div className="progress">
-            <div style={{ width: `${score}%` }} />
-          </div>
+        <div className="pageHeaderActions">
+          <button className="button secondary" onClick={() => refresh()} disabled={loading || companyLoading}>
+            Uppdatera
+          </button>
         </div>
-
-        {error ? <div style={{ marginTop: 12 }}><Notice tone="error">{error}</Notice></div> : null}
       </div>
 
-      <div className="card" style={{ padding: 16, marginTop: 16 }}>
-        <div className="h2">Checklista</div>
-        <div className="small" style={{ marginTop: 6 }}>
-          När alla punkter är klara är du “inspektionsredo” i Arbexita.
-        </div>
+      <div className="card">
+        {error && <div className="errorBox">{error}</div>}
 
-        <div className="hr" />
-
-        <div style={{ display: "grid", gap: 10 }}>
-          {STEPS.map((s) => {
-            const done = (status as any)[s.key] as boolean;
-            return (
-              <div key={s.key} className="notice" style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span className={done ? "badge ok" : "badge"}>{done ? "Klar" : "Saknas"}</span>
-                    <div style={{ fontWeight: 800 }}>{s.title}</div>
-                  </div>
-                  <div className="small" style={{ marginTop: 4 }}>{s.desc}</div>
-                  {s.key === "actions" && status.overdueActions > 0 ? (
-                    <div className="small" style={{ marginTop: 4 }}>Du har {status.overdueActions} förfallna åtgärder.</div>
-                  ) : null}
-                </div>
-
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {s.key === "policy" ? <Link className="btn" href="/app/policy">Öppna</Link> : null}
-                  {s.key === "risk" ? <Link className="btn" href="/app/riskbedomningar">Öppna</Link> : null}
-                  {s.key === "actions" ? <Link className="btn" href="/app/atgarder">Öppna</Link> : null}
-                  {s.key === "incidents" ? <Link className="btn" href="/app/incidenter">Öppna</Link> : null}
-                  {s.key === "annual" ? (
-                    <>
-                      <button className="btn" disabled={saving} onClick={() => toggleAnnualReview(true)}>
-                        Markera klar
-                      </button>
-                      <button className="btn" disabled={saving} onClick={() => toggleAnnualReview(false)}>
-                        Ångra
-                      </button>
-                    </>
-                  ) : null}
-                </div>
+        {companyLoading || loading ? (
+          <div className="muted">Laddar…</div>
+        ) : !company?.id ? (
+          <div className="muted">Inget företag hittades för kontot.</div>
+        ) : !status ? (
+          <div className="muted">Kunde inte läsa compliance-status.</div>
+        ) : (
+          <>
+            <div className="complianceTop">
+              <div>
+                <div className="complianceScore">{status.score}%</div>
+                <div className="muted">Compliance score</div>
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      <div className="small" style={{ marginTop: 14 }}>
-        Tips: Gör riskbedömningen först. Höga risker ska följas av åtgärdsplan med ansvar och deadline.
+              <div>
+                <span className={`badge ${status.ready ? "ok" : "warn"}`}>
+                  {status.ready ? "Redo för inspektion" : "Inte redo ännu"}
+                </span>
+              </div>
+            </div>
+
+            <div className="divider" />
+
+            <h2 className="sectionTitle">Checklista</h2>
+
+            <ul className="checklist">
+              <li className={status.steps.policyCreated ? "ok" : "todo"}>
+                <span>Arbetsmiljöpolicy skapad</span>
+                <span className="muted">{status.steps.policyCreated ? "Klar" : "Saknas"}</span>
+              </li>
+
+              <li className={status.steps.hasRisk ? "ok" : "todo"}>
+                <span>Minst en riskbedömning</span>
+                <span className="muted">{status.meta.risksCount} st</span>
+              </li>
+
+              <li className={status.steps.noOverdueActions ? "ok" : "todo"}>
+                <span>Inga förfallna åtgärder</span>
+                <span className="muted">{status.meta.overdueActionsCount} förfallna</span>
+              </li>
+
+              <li className={status.steps.hasIncident ? "ok" : "todo"}>
+                <span>Incident rapporterad</span>
+                <span className="muted">{status.meta.incidentsCount} st</span>
+              </li>
+
+              <li className={status.steps.annualReviewDone ? "ok" : "todo"}>
+                <span>Årlig uppföljning markerad</span>
+                <span className="muted">{status.steps.annualReviewDone ? "Klar" : "Saknas"}</span>
+              </li>
+            </ul>
+
+            <div className="divider" />
+
+            <h2 className="sectionTitle">Snabbstatistik</h2>
+            <div className="statsRow">
+              <div className="statCard">
+                <div className="statLabel">Öppna åtgärder</div>
+                <div className="statValue">{status.meta.openActionsCount}</div>
+              </div>
+
+              <div className="statCard">
+                <div className="statLabel">Förfallna</div>
+                <div className="statValue">{status.meta.overdueActionsCount}</div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
