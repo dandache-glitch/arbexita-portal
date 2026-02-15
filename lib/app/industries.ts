@@ -1,81 +1,263 @@
-export type IndustryKey = "kontor" | "bygg" | "restaurang" | "lager" | "vard";
+export type IndustryKey =
+  | "kontor"
+  | "bygg"
+  | "industri"
+  | "butik"
+  | "transport"
+  | "vard"
+  | "restaurang"
+  | "skola"
+  | "annan";
+
+export type IndustryDoc = {
+  title: string;
+  description: string;
+  href: string;
+};
 
 export type IndustryPack = {
   key: IndustryKey;
-  name: string;
-  description: string;
-  docs: { slug: string; title: string; description: string }[];
+  label: string;
+  items: IndustryDoc[];
 };
 
+/**
+ * Branschpaket för dokument/checklistor.
+ * Dessa länkar pekar på routes i appen. Du kan senare byta till Storage/PDF.
+ */
 export const INDUSTRIES: IndustryPack[] = [
-  { key: "kontor", name: "Kontor", description: "Ergonomi, belastning, psykosocial arbetsmiljö, brandskydd.",
-    docs: [
-      { slug: "ergonomi", title: "Ergonomichecklista", description: "Stol/bord, skärm, belysning, pauser." },
-      { slug: "psyko", title: "Psykosocial inventering", description: "Arbetsbelastning, kränkande särbehandling, stress." }
-    ]
-  },
-  { key: "bygg", name: "Bygg", description: "Fallrisk, maskiner, kemiska risker, ordning och reda.",
-    docs: [
-      { slug: "fallrisk", title: "Fallrisk-checklista", description: "Ställning, stegar, skyddsräcken, PPE." },
-      { slug: "maskin", title: "Maskin- & verktygskontroll", description: "Elverktyg, skydd, underhåll, instruktioner." }
-    ]
-  },
-  { key: "restaurang", name: "Restaurang", description: "Halkrisk, heta ytor, knivar, stress, hygienrutiner.",
-    docs: [
-      { slug: "halk", title: "Halk- & brännskaderisk", description: "Golv, skor, heta ytor, spillrutiner." },
-      { slug: "kniv", title: "Knivsäkerhet", description: "Skärskydd, rutiner, utbildning." }
-    ]
-  },
-  { key: "lager", name: "Lager/Logistik", description: "Truckar, lyft, plock, trafikytor, belastning.",
-    docs: [
-      { slug: "truck", title: "Truck- & trafikchecklista", description: "Zoner, utbildning, hastighet, underhåll." },
-      { slug: "lyft", title: "Lyft & belastning", description: "Hjälpmedel, maxvikter, rotation." }
-    ]
-  },
-  { key: "vard", name: "Vård/Omsorg", description: "Hot/våld, smitta, ergonomi, stress, sekretess.",
-    docs: [
-      { slug: "hot", title: "Hot & våld – rutiner", description: "Riskbedömning, larm, bemanning, uppföljning." },
-      { slug: "smitta", title: "Smittskydd & hygien", description: "PPE, rutiner, avvikelser." }
-    ]
-  }
-];
-
-export type ComplianceStep = {
-  key: string;
-  title: string;
-  why: string;
-  lawHint: string;
-};
-
-export const COMPLIANCE_STEPS: ComplianceStep[] = [
   {
-    key: "policy",
-    title: "Arbetsmiljöpolicy på plats",
-    why: "En tydlig policy visar att ni arbetar systematiskt och har mål och inriktning.",
-    lawHint: "SAM: policy + mål (AFS 2001:1)"
+    key: "kontor",
+    label: "Kontor",
+    items: [
+      {
+        title: "SAM-checklista (grund)",
+        description: "Översikt över vad som krävs för systematiskt arbetsmiljöarbete.",
+        href: "/app/compliance",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Skapa och spara arbetsmiljöpolicy som PDF.",
+        href: "/app/policy",
+      },
+      {
+        title: "Riskbedömning – kontor",
+        description: "Mall för risker som stress, ergonomi, hot & våld, brand.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera en incident och skapa uppföljningsåtgärder.",
+        href: "/app/incidenter/rapportera",
+      },
+    ],
   },
   {
-    key: "risk",
-    title: "Minst 1 aktuell riskbedömning",
-    why: "Ni ska undersöka och bedöma risker, särskilt vid förändringar.",
-    lawHint: "Undersöka/bedöma risker (AFS 2001:1)"
+    key: "bygg",
+    label: "Bygg",
+    items: [
+      {
+        title: "Riskbedömning – byggarbetsplats",
+        description: "Fallrisk, maskiner, kemikalier, lyft, buller och ordning & reda.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Åtgärdsplan",
+        description: "Följ upp åtgärder, deadlines och ansvar.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Tillbud och olyckor med automatisk uppföljning.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Policy som är redo för inspektion.",
+        href: "/app/policy",
+      },
+    ],
   },
   {
-    key: "actions",
-    title: "Inga förfallna åtgärder",
-    why: "Åtgärder ska ha ansvarig och tidsplan – annars blir riskerna kvar.",
-    lawHint: "Åtgärda och följa upp (AFS 2001:1)"
+    key: "industri",
+    label: "Industri",
+    items: [
+      {
+        title: "Riskbedömning – industri",
+        description: "Maskinsäkerhet, kemiska risker, buller, vibrationer.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Åtgärdsplan",
+        description: "Planera och följ upp förebyggande åtgärder.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera incident och säkra uppföljning.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Compliance",
+        description: "Se vad som saknas för att nå 100% compliance.",
+        href: "/app/compliance",
+      },
+    ],
   },
   {
-    key: "incidents",
-    title: "Rutiner för tillbud/olyckor och uppföljning",
-    why: "Tillbud är tidiga varningssignaler. Följ upp och förebygg.",
-    lawHint: "Rutiner + uppföljning (AFS 2001:1)"
+    key: "butik",
+    label: "Butik",
+    items: [
+      {
+        title: "Riskbedömning – butik",
+        description: "Hot & våld, ensamarbete, belastning, halkrisk.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera hot/tillbud och skapa uppföljning.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Åtgärder",
+        description: "Håll koll på åtgärder och deadlines.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Policy som uppfyller SAM-grunderna.",
+        href: "/app/policy",
+      },
+    ],
   },
   {
-    key: "annual",
-    title: "Årlig uppföljning dokumenterad",
-    why: "SAM ska följas upp minst årligen och vid behov oftare.",
-    lawHint: "Årlig uppföljning (AFS 2001:1)"
-  }
+    key: "transport",
+    label: "Transport",
+    items: [
+      {
+        title: "Riskbedömning – transport",
+        description: "Trafikrisker, lastning, ensamarbete, trötthet.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Åtgärdsplan",
+        description: "Följ upp förebyggande och korrigerande åtgärder.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera incident/tillbud och skapa uppföljning.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Compliance",
+        description: "Status för inspektionsberedskap.",
+        href: "/app/compliance",
+      },
+    ],
+  },
+  {
+    key: "vard",
+    label: "Vård",
+    items: [
+      {
+        title: "Riskbedömning – vård",
+        description: "Smitta, hot & våld, belastning, stress och nattarbete.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera tillbud/incident och följ upp.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Åtgärdsplan",
+        description: "Åtgärder med deadlines och status.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Policy med fokus på rutiner och ansvar.",
+        href: "/app/policy",
+      },
+    ],
+  },
+  {
+    key: "restaurang",
+    label: "Restaurang",
+    items: [
+      {
+        title: "Riskbedömning – restaurang",
+        description: "Halkrisk, värme, knivar, stress, ensamarbete.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Åtgärder",
+        description: "Åtgärda risker och håll deadlines.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera olyckor/tillbud.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Compliance",
+        description: "Se vad som saknas för 100%.",
+        href: "/app/compliance",
+      },
+    ],
+  },
+  {
+    key: "skola",
+    label: "Skola",
+    items: [
+      {
+        title: "Riskbedömning – skola",
+        description: "Hot & våld, stress, ergonomi, utrymning, ensamarbete.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera incident och skapa uppföljning.",
+        href: "/app/incidenter/rapportera",
+      },
+      {
+        title: "Åtgärdsplan",
+        description: "Följ upp åtgärder och ansvar.",
+        href: "/app/atgarder",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Policy anpassad för skolverksamhet.",
+        href: "/app/policy",
+      },
+    ],
+  },
+  {
+    key: "annan",
+    label: "Annan",
+    items: [
+      {
+        title: "SAM-checklista (grund)",
+        description: "Startpaket för systematiskt arbetsmiljöarbete.",
+        href: "/app/compliance",
+      },
+      {
+        title: "Arbetsmiljöpolicy",
+        description: "Skapa policy som PDF.",
+        href: "/app/policy",
+      },
+      {
+        title: "Riskbedömning",
+        description: "Skapa riskbedömning och åtgärder.",
+        href: "/app/risker/ny",
+      },
+      {
+        title: "Incidentrapport",
+        description: "Rapportera incident och följ upp.",
+        href: "/app/incidenter/rapportera",
+      },
+    ],
+  },
 ];
