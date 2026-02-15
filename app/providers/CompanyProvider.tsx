@@ -1,77 +1,91 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { supabaseBrowser } from "@/lib/supabase/client";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useAuth } from "@/app/providers/AuthProvider";
 
-export type CompanyContextValue = {
+type Company = {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  industry: string | null;
+  annual_review_done: boolean;
+  created_at: string;
+};
+
+type CompanyState = {
   isLoading: boolean;
-  companyId: string | null;
-  companyName: string;
-  industry: string;
-  annualReviewDone: boolean;
+  company: Company | null;
   refresh: () => Promise<void>;
 };
 
-const CompanyContext = createContext<CompanyContextValue | null>(null);
+const CompanyContext = createContext<CompanyState | null>(null);
+
+async function sleep(ms: number) {
+  await new Promise((r) => setTimeout(r, ms));
+}
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => supabaseBrowser(), []);
-  const { user, isLoading: authLoading } = useAuth();
+  const { isLoading: authLoading, user } = useAuth();
 
-  const [state, setState] = useState<Omit<CompanyContextValue, "refresh">>({
-    isLoading: true,
-    companyId: null,
-    companyName: "Företaget",
-    industry: "kontor",
-    annualReviewDone: false
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [company, setCompany] = useState<Company | null>(null);
 
-  const refresh = async () => {
+  const loadCompany = async () => {
     if (!user) {
-      setState((s) => ({ ...s, isLoading: false, companyId: null }));
+      setCompany(null);
+      setIsLoading(false);
       return;
     }
 
-    setState((s) => ({ ...s, isLoading: true }));
+    setIsLoading(true);
 
-    const { data, error } = await supabase
-      .from("companies")
-      .select("id, name, industry, annual_review_done")
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
+    // Robust: retry några gånger ifall company inte hunnit skapas/propageras
+    const attempts = [0, 200, 400, 800, 1200]; // ms backoff
+    let lastErr: string | null = null;
 
-    if (error) {
-      setState({
-        isLoading: false,
-        companyId: null,
-        companyName: "Företaget",
-        industry: "kontor",
-        annualReviewDone: false
-      });
-      return;
+    for (const delay of attempts) {
+      if (delay > 0) await sleep(delay);
+
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, owner_user_id, name, industry, annual_review_done, created_at")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        lastErr = error.message;
+        continue;
+      }
+
+      if (data) {
+        setCompany(data as Company);
+        setIsLoading(false);
+        return;
+      }
+
+      // Ingen data ännu — retry
+      lastErr = "Company not found yet";
     }
 
-    setState({
-      isLoading: false,
-      companyId: (data?.id as string) ?? null,
-      companyName: (data?.name as string) || "Företaget",
-      industry: (data?.industry as string) || "kontor",
-      annualReviewDone: Boolean((data as any)?.annual_review_done)
-    });
+    // Efter retries: lämna tydligt state (kan visas i UI om du vill)
+    console.error("Company load failed:", lastErr);
+    setCompany(null);
+    setIsLoading(false);
   };
 
   useEffect(() => {
     if (authLoading) return;
-    // When user changes, refresh company context.
-    refresh();
+    // auth klar => hämta company
+    void loadCompany();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id]);
 
-  const value: CompanyContextValue = {
-    ...state,
-    isLoading: authLoading || state.isLoading,
-    refresh
+  const value: CompanyState = {
+    isLoading,
+    company,
+    refresh: loadCompany,
   };
 
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;
