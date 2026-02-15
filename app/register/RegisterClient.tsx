@@ -1,19 +1,26 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase/client";
-import { INDUSTRIES, IndustryKey } from "@/lib/app/industries";
-import { Logo } from "@/components/ui/Logo";
-import { Notice } from "@/components/ui/Notice";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+
+type IndustryValue =
+  | "kontor"
+  | "bygg"
+  | "industri"
+  | "butik"
+  | "transport"
+  | "vard"
+  | "restaurang"
+  | "skola"
+  | "annan";
 
 export default function RegisterClient() {
-  const supabase = useMemo(() => supabaseBrowser(), []);
   const router = useRouter();
+  const supabase = useMemo(() => supabaseBrowser(), []);
 
   const [companyName, setCompanyName] = useState("");
-  const [industry, setIndustry] = useState<IndustryKey>("kontor");
+  const [industry, setIndustry] = useState<IndustryValue>("kontor");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -25,84 +32,116 @@ export default function RegisterClient() {
     setErr(null);
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setLoading(false);
-      // tips: rate limit / email confirm
-      return setErr(error.message + " (Tips: I Supabase, stäng av Email confirmations under Auth för smidig test.)");
-    }
+    const cleanCompanyName = companyName.trim();
 
-    const userId = data.user?.id;
-    if (!userId) {
-      setLoading(false);
-      return setErr("Kunde inte skapa användare. (Kontrollera Email confirmations i Supabase.)");
-    }
-
-    const { error: companyErr } = await supabase.from("companies").insert({
-      owner_user_id: userId,
-      name: companyName || "Företaget",
-      industry
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          company_name: cleanCompanyName || "Företaget",
+          industry,
+        },
+      },
     });
 
-    setLoading(false);
-    if (companyErr) return setErr(companyErr.message);
+    if (error) {
+      setLoading(false);
+      setErr(error.message);
+      return;
+    }
 
-    router.replace("/app");
+    /**
+     * Viktigt:
+     * - Om email confirmation är OFF får du ofta session direkt.
+     * - Om den är ON får du ingen session -> user måste bekräfta mail.
+     */
+    const hasSession = Boolean(data.session);
+
+    setLoading(false);
+
+    if (hasSession) {
+      router.replace("/app");
+      return;
+    }
+
+    // Email confirmation är troligen på
+    router.replace("/login?registered=1");
   }
 
   return (
-    <div className="container">
-      <div className="card" style={{ padding: 24, maxWidth: 720, margin: "34px auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <Logo />
-        </div>
-        <div className="h1">Skapa konto</div>
-        <p className="small" style={{ marginTop: 6 }}>
-          Välj bransch så laddas rätt checklistor och dokument direkt. Målet är 100% compliance.
+    <div className="authCard">
+      <h1 className="authTitle">Skapa konto</h1>
+      <p className="authSubtitle">Kom igång med Arbexita på 2 minuter.</p>
+
+      <form onSubmit={onSubmit} className="authForm">
+        <label className="authLabel">
+          Företagsnamn
+          <input
+            className="authInput"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Ex. Arbexita AB"
+            autoComplete="organization"
+          />
+        </label>
+
+        <label className="authLabel">
+          Bransch
+          <select
+            className="authInput"
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value as IndustryValue)}
+          >
+            <option value="kontor">Kontor</option>
+            <option value="bygg">Bygg</option>
+            <option value="industri">Industri</option>
+            <option value="butik">Butik</option>
+            <option value="transport">Transport</option>
+            <option value="vard">Vård</option>
+            <option value="restaurang">Restaurang</option>
+            <option value="skola">Skola</option>
+            <option value="annan">Annan</option>
+          </select>
+        </label>
+
+        <label className="authLabel">
+          E-post
+          <input
+            className="authInput"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="namn@foretag.se"
+            autoComplete="email"
+            inputMode="email"
+          />
+        </label>
+
+        <label className="authLabel">
+          Lösenord
+          <input
+            className="authInput"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type="password"
+            placeholder="Minst 8 tecken"
+            autoComplete="new-password"
+          />
+        </label>
+
+        {err && <div className="authError">{err}</div>}
+
+        <button className="authButton" type="submit" disabled={loading}>
+          {loading ? "Skapar konto…" : "Skapa konto"}
+        </button>
+
+        <p className="authHint">
+          Har du redan ett konto?{" "}
+          <a className="authLink" href="/login">
+            Logga in
+          </a>
         </p>
-
-        <form onSubmit={onSubmit} style={{ marginTop: 16, display: "grid", gap: 14 }}>
-          <div className="grid grid-2">
-            <div>
-              <div className="label">Företagsnamn</div>
-              <input className="input" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Ex. Arbexita AB" />
-            </div>
-            <div>
-              <div className="label">Bransch</div>
-              <select className="input" value={industry} onChange={(e) => setIndustry(e.target.value as IndustryKey)}>
-                {INDUSTRIES.map((i) => (<option key={i.key} value={i.key}>{i.name}</option>))}
-              </select>
-              <div className="small" style={{ marginTop: 6 }}>{INDUSTRIES.find((x) => x.key === industry)?.description}</div>
-            </div>
-          </div>
-
-          <div className="grid grid-2">
-            <div>
-              <div className="label">E-post</div>
-              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div>
-              <div className="label">Lösenord</div>
-              <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <div className="small" style={{ marginTop: 6 }}>Minst 8 tecken rekommenderas.</div>
-            </div>
-          </div>
-
-          {err && <Notice tone="error">{err}</Notice>}
-
-          <button className="btn btn-primary" disabled={loading}>
-            {loading ? "Skapar konto..." : "Skapa konto"}
-          </button>
-        </form>
-
-        <div className="small" style={{ marginTop: 14 }}>
-          Har du redan konto? <Link href="/login" className="btn" style={{ padding: "6px 10px", marginLeft: 8 }}>Logga in</Link>
-        </div>
-
-        <div className="small" style={{ marginTop: 12 }}>
-          <Link href="/" className="btn btn-ghost" style={{ padding: "6px 10px" }}>Till startsidan</Link>
-        </div>
-      </div>
+      </form>
     </div>
   );
 }
