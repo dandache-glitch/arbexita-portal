@@ -124,15 +124,11 @@ export async function exportSamPdf(
     font
   })
 
-  const bytes = await pdfDoc.save()
-
-  // 🔥 FIX: konvertera till ArrayBuffer korrekt
-  const buffer = bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  )
-
-  const blob = new Blob([buffer], { type: 'application/pdf' })
+  // 🔥 FINAL FIX — använd Uint8Array direkt
+  const pdfBytes = await pdfDoc.save()
+  const blob = new Blob([new Uint8Array(pdfBytes)], {
+    type: 'application/pdf'
+  })
 
   const url = URL.createObjectURL(blob)
 
