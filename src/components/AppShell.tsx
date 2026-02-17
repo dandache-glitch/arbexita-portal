@@ -12,19 +12,34 @@ export default function AppShell({
 }) {
   const [loading, setLoading] = useState(true)
   const [companyName, setCompanyName] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      try {
+        const { data: { session }, error: sessionError } =
+          await supabase.auth.getSession()
 
-      if (!session) {
-        window.location.href = '/login'
-        return
+        if (sessionError) {
+          setError('Session error')
+          setLoading(false)
+          return
+        }
+
+        if (!session) {
+          window.location.href = '/login'
+          return
+        }
+
+        const company = await ensureCompany()
+
+        setCompanyName(company.companyName)
+        setLoading(false)
+      } catch (err: any) {
+        console.error(err)
+        setError(err?.message || 'Unknown error')
+        setLoading(false)
       }
-
-      const c = await ensureCompany()
-      setCompanyName(c.companyName)
-      setLoading(false)
     })()
   }, [])
 
@@ -34,9 +49,14 @@ export default function AppShell({
   }
 
   if (loading) {
+    return <div style={{ padding: 40 }}>Laddar...</div>
+  }
+
+  if (error) {
     return (
       <div style={{ padding: 40 }}>
-        Laddar...
+        <h2>Fel uppstod</h2>
+        <p>{error}</p>
       </div>
     )
   }
