@@ -7,49 +7,35 @@ export async function ensureCompany() {
     throw new Error('Not authenticated')
   }
 
-  // Hämta membership + company
+  // 1. Kolla membership
   const { data: membership } = await supabase
     .from('memberships')
-    .select(`
-      company_id,
-      companies (
-        name
-      )
-    `)
+    .select('company_id')
     .eq('user_id', user.id)
     .maybeSingle()
 
   if (membership?.company_id) {
-    const companyName =
-      Array.isArray(membership.companies)
-        ? membership.companies[0]?.name
-        : (membership as any).companies?.name
-
     return {
       companyId: membership.company_id,
-      companyName: companyName || 'Mitt företag'
+      companyName: 'Mitt företag'
     }
   }
 
-  // Skapa nytt företag
-  const companyName = user.email
-    ? user.email.split('@')[0] + ' AB'
-    : 'Mitt företag'
-
+  // 2. Skapa företag UTAN select()
   const { data: newCompany, error: companyError } = await supabase
     .from('companies')
     .insert({
-      name: companyName,
+      name: 'Mitt företag',
       created_by: user.id
     })
-    .select()
+    .select('id')
     .single()
 
   if (companyError) {
     throw companyError
   }
 
-  // Skapa membership
+  // 3. Skapa membership
   const { error: membershipError } = await supabase
     .from('memberships')
     .insert({
@@ -64,6 +50,6 @@ export async function ensureCompany() {
 
   return {
     companyId: newCompany.id,
-    companyName: newCompany.name
+    companyName: 'Mitt företag'
   }
 }
