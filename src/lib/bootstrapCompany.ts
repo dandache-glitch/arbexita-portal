@@ -7,17 +7,27 @@ export async function ensureCompany() {
     throw new Error('Not authenticated')
   }
 
-  // Kolla om membership redan finns
+  // Hämta membership + company
   const { data: membership } = await supabase
     .from('memberships')
-    .select('company_id, companies(name)')
+    .select(`
+      company_id,
+      companies (
+        name
+      )
+    `)
     .eq('user_id', user.id)
     .maybeSingle()
 
   if (membership?.company_id) {
+    const companyName =
+      Array.isArray(membership.companies)
+        ? membership.companies[0]?.name
+        : (membership as any).companies?.name
+
     return {
       companyId: membership.company_id,
-      companyName: membership.companies?.name || 'Mitt företag'
+      companyName: companyName || 'Mitt företag'
     }
   }
 
