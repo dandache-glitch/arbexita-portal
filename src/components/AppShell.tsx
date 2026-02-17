@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import Sidebar, { NavLinks } from './Sidebar'
-import { ensureCompany } from '@/lib/bootstrapCompany'
+import { ensureCompany } from '../../lib/bootstrapCompany'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)

@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import AppShell from '@/components/AppShell'
-import { ensureCompany } from '@/lib/bootstrapCompany'
-import { supabase } from '@/lib/supabaseClient'
-import { templates, type Industry, industryLabels } from '@/lib/templates'
-import { computeRiskLevel } from '@/lib/riskLevel'
+import AppShell from '../../components/AppShell'
+import { ensureCompany } from '../../lib/bootstrapCompany'
+import { supabase } from '../../lib/supabaseClient'
+import { templates, type Industry, industryLabels } from '../../lib/templates'
+import { computeRiskLevel } from '../../lib/riskLevel'
 
 type Step = 1|2|3|4
 

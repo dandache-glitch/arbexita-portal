@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import AppShell from '@/components/AppShell'
-import { supabase } from '@/lib/supabaseClient'
-import { ensureCompany } from '@/lib/bootstrapCompany'
-import { computeRiskLevel, riskBadge, riskLabel, type Likelihood, type Consequence } from '@/lib/riskLevel'
+import AppShell from '../../components/AppShell'
+import { supabase } from '../../lib/supabaseClient'
+import { ensureCompany } from '../../lib/bootstrapCompany'
+import { computeRiskLevel, riskBadge, riskLabel, type Likelihood, type Consequence } from '../../lib/riskLevel'
 
 export default function RisksPage() {
   const [companyId, setCompanyId] = useState('')

@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import AppShell from '@/components/AppShell'
-import { supabase } from '@/lib/supabaseClient'
-import { ensureCompany } from '@/lib/bootstrapCompany'
-import { exportSamPdf } from '@/lib/pdf'
+import AppShell from '../../components/AppShell'
+import { supabase } from '../../lib/supabaseClient'
+import { ensureCompany } from '../../lib/bootstrapCompany'
+import { exportSamPdf } from '../../lib/pdf'
 
 export default function ReportsPage() {
   const [companyId, setCompanyId] = useState('')

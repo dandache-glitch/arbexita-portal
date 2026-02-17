@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
-import AppShell from '@/components/AppShell'
-import { supabase } from '@/lib/supabaseClient'
-import { ensureCompany } from '@/lib/bootstrapCompany'
+import AppShell from '../../components/AppShell'
+import { supabase } from '../../lib/supabaseClient'
+import { ensureCompany } from '../../lib/bootstrapCompany'
 
 export default function InspectionPage() {
   const [companyId, setCompanyId] = useState('')

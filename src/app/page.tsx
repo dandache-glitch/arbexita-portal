@@ -1,9 +1,9 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
-import AppShell from '@/components/AppShell'
-import { supabase } from '@/lib/supabaseClient'
-import { ensureCompany } from '@/lib/bootstrapCompany'
-import { samScore, badge, nextStep } from '@/lib/samScoring'
+import AppShell from '../../components/AppShell'
+import { supabase } from '../../lib/supabaseClient'
+import { ensureCompany } from '../../lib/bootstrapCompany'
+import { samScore, badge, nextStep } from '../../lib/samScoring'
 
 function ymNow() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` }
 function daysBetween(a: Date, b: Date) { return Math.floor((a.getTime()-b.getTime())/86400000) }
